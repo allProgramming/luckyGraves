@@ -15,12 +15,12 @@
   $words = $_GET['words'];
   foreach ($words as $word) {
     if ($firstLike) {
-	    $queryStr .= " WHERE text ";
-  	  $firstLike = false;
-	  } else {
-  	  $queryStr .= " OR text ";
-	  }
-  	$queryStr .= "LIKE '%" . $word . "%'";
+      $queryStr .= " WHERE text ";
+      $firstLike = false;
+    } else {
+      $queryStr .= " OR text ";
+    }
+    $queryStr .= "LIKE '%" . $word . "%'";
   }
   $queryStr .= " GROUP BY ref ORDER BY COUNT(ref) DESC";
 
