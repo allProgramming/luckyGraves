@@ -5,8 +5,10 @@ Requirements:
 - Python
 - OpenCV
 - Tesseract
-- PHP
 - MySql Server
+- PHP
+- UIKit (extracted to www)
+- jQuery (placed in www/js)
 
 ===
 
