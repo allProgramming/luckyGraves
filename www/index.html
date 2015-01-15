@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Lucky Graves - Search</title>
+    <link rel="stylesheet" href="css/uikit.min.css" />
+    <script src="js/jquery.js"></script>
+    <script src="js/uikit.min.js"></script>
+	  <script>
+			function search() {
+  			var words = $("#searchText").val().trim().toUpperCase().split(/\s+/)
+	  		$("#searchResults").html("<div class=\"uk-progress uk-progress-striped uk-active\"><div class=\"uk-progress-bar\" style=\"width: 100%;\">Searching, Please Wait...</div></div>")
+		  	$.ajax({                                      
+					url: "ajax/search.php",
+  				type: "get",
+	  			data: {words: words},
+		  		dataType: "json",
+					success: function(data) {
+  					$("#searchResults").empty();
+	  				for (i = 0; i < data.length; i++) {
+		  				$("#searchResults").append("<p><div class=\"uk-badge uk-badge-success\">" + data[i]["COUNT(ref)"] + "</div> <a href=\"http://billiongraves.com/pages/transcribe/?media_id=" + data[i]["ref"] + "\" target=\"_blank\"><img class=\"uk-thumbnail uk-thumbnail-large\" style=\"vertical-align: text-top;\" src=\"images/" + data[i]["ref"] + ".jpg\"></a></p>");
+						}
+  					if (!data.length) {
+	  					$("#searchResults").html("<div class=\"uk-alert uk-alert-warning\" data-uk-alert>The search completed and no results were found, please try again.</div>")
+		  			}
+					},
+  				error: function(data) {
+	  				$("#searchResults").html("<div class=\"uk-alert uk-alert-danger\" data-uk-alert>The search failed to complete, please try again.</div>")
+		  		}
+				});
+  		}
+	  </script>
+  </head>
+  <body>
+		<div class="uk-container uk-container-center uk-margin-top uk-margin-large-bottom">
+  		<div class="uk-grid" data-uk-grid-margin>
+        <div class="uk-width-1-1">
+          <h1 class="uk-heading-large">Lucky Graves</h1>
+			  	<form class="uk-form" onsubmit="search(); return false;">
+				    <fieldset data-uk-margin>
+  			      <legend>Search Headstones</legend>
+              <p>Enter any keywords expected to be found on the headstone
+              (i.e. first/last name(s), birth/death month/year(s) for
+	  					the individual(s) mentioned on the headstone). Separate
+  						keywords with spaces. Order doesn't matter.</p>
+							<p>Examples:<ul>
+						  	<li>Clifford Smith 1914</li>
+					  		<li>Felipe Haro 1944</li>
+				  			<li>Janet Read 2004</li>
+			  				<li>War</li>
+		  				</ul></p>
+	  		      <input id="searchText" class="uk-form-width-large" type="text" placeholder="Keywords (ex. Clifford Smith 1914)">
+  			      <button id="searchButton" class="uk-button" type="submit">Search</button>
+			      </fieldset>
+					</form>
+          <hr class="uk-grid-divider">
+  				<div id="searchResults"></div>
+        </div>
+      </div>
+	  </div>
+  </body>
+</html>
