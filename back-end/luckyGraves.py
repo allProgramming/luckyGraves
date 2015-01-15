@@ -80,10 +80,11 @@ def initTools(cmdParams):
     api.Init("C:\\Program Files (x86)\\Tesseract-OCR\\tessdata", "eng", tesseract.OEM_DEFAULT)
     api.SetPageSegMode(tesseract.PSM_AUTO_OSD)
 
-    sql_conn = mdb.connect(user='luckygraves',
-                           password='gravyluck',
-                           host='173.194.228.191',
-                           database='graves_db')
+    # Your MySQL connection information goes here!
+    sql_conn = mdb.connect(user='',
+                           password='',
+                           host='',
+                           database='')
     sql_cur = sql_conn.cursor()
 
 ## Acquire image for processing.
