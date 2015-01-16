@@ -4,8 +4,8 @@ Headstone sampling, OCR, storage, and probabilistic search.<br />
 
 Requirements:
 - Python
-- OpenCV
-- Tesseract
+- OpenCV; OpenCV-Python
+- Tesseract; python-tesseract
 - MySql Server
 - PHP
 - UIKit (extracted to www)
