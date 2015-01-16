@@ -1,5 +1,6 @@
 # Lucky Graves
-Headstone sampling, OCR, storage, and probabilistic search.
+Headstone sampling, OCR, storage, and probabilistic search.<br />
+(Demo: http://olsen.org/alan/luckyGraves)
 
 Requirements:
 - Python
