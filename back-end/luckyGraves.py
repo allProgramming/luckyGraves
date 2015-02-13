@@ -1,3 +1,6 @@
+import requests
+from requests.exceptions import MissingSchema, InvalidSchema
+import numpy
 import tesseract
 import sys
 import argparse
@@ -29,11 +32,8 @@ def main(argv = []):
     """
     cmdParams = parseArgs(argv)
     initTools(cmdParams)
-    files = \
-        [cmdParams.input] if not os.path.isdir(cmdParams.input) else \
-        [cmdParams.input + '\\' + f for f in os.listdir(cmdParams.input) if f.endswith(".jpg")]
-    for imageFilename in files:
-        imageID, rawImage = acquireImage(imageFilename)
+    for imagePath in cmdParams.input:
+        imageID, rawImage = acquireImage(imagePath)
         cleanedImage = cleanImage(rawImage)
         variations = getVariations(cleanedImage)
         for sampleParams in variations:
@@ -62,7 +62,7 @@ def parseArgs(argv):
     )
     argParser.add_argument(
         '-i', '--input',
-        help="file or directory of image(s)",
+        help="URL, local file path, or directory of image(s)",
         type=str,
         required=True
     )
@@ -71,13 +71,24 @@ def parseArgs(argv):
         help="show sampled image and wait for key press",
         action="store_true"
     )
-    return argParser.parse_args(argv[1:])
+    cmdParams = argParser.parse_args(argv[1:])
+
+    # Convert input into a list of 1+ files (depending on if it's a directory)
+    if os.path.isdir(cmdParams.input):
+        cmdParams.input = \
+            [os.path.join(cmdParams.input, filename)
+            for filename in os.listdir(cmdParams.input)
+            if filename.endswith(".jpg")]
+    else:
+        cmdParams.input = [cmdParams.input]
+
+    return cmdParams
 
 def initTools(cmdParams):
     global api, sql_conn, sql_cur
 
     api = tesseract.TessBaseAPI()
-    api.Init("C:\\Program Files (x86)\\Tesseract-OCR\\tessdata", "eng", tesseract.OEM_DEFAULT)
+    api.Init(os.environ['TESSDATA_PREFIX'], "eng", tesseract.OEM_DEFAULT)
     api.SetPageSegMode(tesseract.PSM_AUTO_OSD)
 
     # Your MySQL connection information goes here!
@@ -92,16 +103,24 @@ def acquireImage(imagePath):
     """ Acquire image for processing.
 
     :Parameters:
-      - `imagePath` (string) - path to file of image
+      - `imagePath` (string) - path/URL to file of image
 
     :Returns:
       - Image ID (string) - a hopefully unique identifier of the image
       - Image (cv2 image) - the loaded, unprocessed image
     """
     print "Acquiring an image"
-    imageID = ntpath.splitext(ntpath.basename(imagePath))[0]
-    rawImage = cv2.imread(imagePath, cv2.IMREAD_GRAYSCALE)
-    print "Acquired image: %s" % imageID
+    imageID = ntpath.splitext(ntpath.basename(imagePath))[0] # To-do: make more unique (yet still deterministic)
+    try:
+        # Verify that imagePath is a URL, and attempt to fetch it
+        req = requests.get(imagePath)
+        req.raise_for_status()
+        imageArray = numpy.asarray(bytearray(req.content), dtype=numpy.uint8)
+        rawImage = cv2.imdecode(imageArray, cv2.IMREAD_GRAYSCALE)
+    except (MissingSchema, InvalidSchema) as e:
+        # If imagePath is not a URL, then attempt to fetch the file locally
+        rawImage = cv2.imread(imagePath, cv2.IMREAD_GRAYSCALE)
+    print "Acquired image: %s" % rawImage # imageID
     return imageID, rawImage
 
 ## Clean up an image.
