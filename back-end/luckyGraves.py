@@ -20,6 +20,13 @@ api = None
 sql_conn = None
 sql_cur = None
 
+## TEMPORARY. To-do: make these command-line parameters
+CLEANER_HOST = ''
+MYSQL_HOST = ''
+MYSQL_DATABASE = ''
+MYSQL_USER = ''
+MYSQL_PASSWORD = ''
+
 ## Main function.
 def main(argv = []):
     """ Overview of program execution.
@@ -34,7 +41,7 @@ def main(argv = []):
     initTools(cmdParams)
     for imagePath in cmdParams.input:
         imageID, rawImage = acquireImage(imagePath)
-        cleanedImage = cleanImage(rawImage)
+        cleanedImage = rawToCV2(cleanImage(rawImage))
         variations = getVariations(cleanedImage)
         for sampleParams in variations:
             sampledImage = sampleImage(cleanedImage, sampleParams)
@@ -92,10 +99,10 @@ def initTools(cmdParams):
     api.SetPageSegMode(tesseract.PSM_AUTO_OSD)
 
     # Your MySQL connection information goes here!
-    sql_conn = mdb.connect(user='',
-                           password='',
-                           host='',
-                           database='')
+    sql_conn = mdb.connect(user=MYSQL_USER,
+                           password=MYSQL_PASSWORD,
+                           host=MYSQL_HOST,
+                           database=MYSQL_DATABASE)
     sql_cur = sql_conn.cursor()
 
 ## Acquire image for processing.
@@ -113,14 +120,13 @@ def acquireImage(imagePath):
     imageID = ntpath.splitext(ntpath.basename(imagePath))[0] # To-do: make more unique (yet still deterministic)
     try:
         # Verify that imagePath is a URL, and attempt to fetch it
-        req = requests.get(imagePath)
+        req = requests.get(imagePath, stream=True)
         req.raise_for_status()
-        imageArray = numpy.asarray(bytearray(req.content), dtype=numpy.uint8)
-        rawImage = cv2.imdecode(imageArray, cv2.IMREAD_GRAYSCALE)
+        rawImage = req.raw
     except (MissingSchema, InvalidSchema) as e:
-        # If imagePath is not a URL, then attempt to fetch the file locally
-        rawImage = cv2.imread(imagePath, cv2.IMREAD_GRAYSCALE)
-    print "Acquired image: %s" % rawImage # imageID
+        # If imagePath is not a URL, then attempt to open the file locally
+        rawImage = open(imagePath, 'rb')
+    print "Acquired image: %s" % imageID
     return imageID, rawImage
 
 ## Clean up an image.
@@ -138,8 +144,47 @@ def cleanImage(image):
     :Return Type:
       cv2 image
     """
+    if not CLEANER_HOST:
+        return image
     print "Cleaning image"
-    return image
+    req = requests.post(
+        'http://' + CLEANER_HOST + '/headstone-cleaner/rest/upload',
+        files={'file': image}
+    )
+    req.raise_for_status()
+    uploadedID = ntpath.basename(req.text)
+    print "Original uploaded: %s" % uploadedID
+    req = requests.post(
+        'http://' + CLEANER_HOST + '/headstone-cleaner/rest/binarize',
+        uploadedID
+    )
+    req.raise_for_status()
+    zonedImagePath = \
+        'http://' + CLEANER_HOST + '/headstone-cleaner/' + \
+        req.json()['zonedImagePath']
+    print "Original cleaned: %s" % zonedImagePath
+    req = requests.get(zonedImagePath, stream=True)
+    req.raise_for_status()
+    print "Clean image handle acquired"
+    return req.raw
+
+## Convert raw image to cv2.
+def rawToCV2(image):
+    """ Convert raw image to cv2.
+
+    Convert raw image (file-like object) into a grayscale, cv2 image.
+
+    :Parameters:
+      - `image` (file-like object) - image to be converted
+
+    :Returns:
+      The constructed cv2 image
+
+    :Return Type:
+      cv2 image
+    """
+    imageArray = numpy.asarray(bytearray(image.read()), dtype=numpy.uint8)
+    return cv2.imdecode(imageArray, cv2.IMREAD_GRAYSCALE)
 
 ## Determine variations for sampling.
 def getVariations(image):
