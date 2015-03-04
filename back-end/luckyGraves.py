@@ -41,7 +41,7 @@ def main(argv = []):
     initTools(cmdParams)
     for imagePath in cmdParams.input:
         imageID, rawImage = acquireImage(imagePath)
-        cleanedImage = rawToCV2(cleanImage(rawImage))
+        cleanedImage = cv2.cvtColor(rawToCV2(cleanImage(rawImage)), cv2.COLOR_BGR2GRAY)
         variations = getVariations(cleanedImage)
         for sampleParams in variations:
             sampledImage = sampleImage(cleanedImage, sampleParams)
@@ -144,9 +144,9 @@ def cleanImage(image):
     :Return Type:
       cv2 image
     """
+    print "Cleaning image"
     if not CLEANER_HOST:
         return image
-    print "Cleaning image"
     req = requests.post(
         'http://' + CLEANER_HOST + '/headstone-cleaner/rest/upload',
         files={'file': image}
@@ -172,7 +172,7 @@ def cleanImage(image):
 def rawToCV2(image):
     """ Convert raw image to cv2.
 
-    Convert raw image (file-like object) into a grayscale, cv2 image.
+    Convert raw image (file-like object) into a cv2 image.
 
     :Parameters:
       - `image` (file-like object) - image to be converted
@@ -184,7 +184,16 @@ def rawToCV2(image):
       cv2 image
     """
     imageArray = numpy.asarray(bytearray(image.read()), dtype=numpy.uint8)
-    return cv2.imdecode(imageArray, cv2.IMREAD_GRAYSCALE)
+    cv2Image = cv2.imdecode(imageArray, cv2.IMREAD_UNCHANGED)
+    if cv2Image is None or len(cv2Image[0][0]) <= 3: # No alpha channel?
+        return cv2Image
+    ch1, ch2, ch3, alpha = cv2.split(cv2Image)
+    alpha = 1 - (alpha / 255)
+    ch1 = ch1 + (255 - ch1) * alpha
+    ch2 = ch2 + (255 - ch2) * alpha
+    ch3 = ch3 + (255 - ch3) * alpha
+    return cv2.merge((ch1, ch2, ch3))
+
 
 ## Determine variations for sampling.
 def getVariations(image):
