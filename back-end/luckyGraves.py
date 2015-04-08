@@ -14,11 +14,13 @@ import cv2.cv as cv
 import mysql.connector as mdb
 from itertools import product
 import unicodedata
+from datetime import date
 
 ## BAD. To-do: make these class variables?
 api = None
 sql_conn = None
 sql_cur = None
+knownWords = []
 
 ## TEMPORARY. To-do: make these command-line parameters
 CLEANER_HOST = ''
@@ -92,18 +94,22 @@ def parseArgs(argv):
     return cmdParams
 
 def initTools(cmdParams):
-    global api, sql_conn, sql_cur
+    global api, sql_conn, sql_cur, knownWords
 
     api = tesseract.TessBaseAPI()
     api.Init(os.environ['TESSDATA_PREFIX'], "eng", tesseract.OEM_DEFAULT)
     api.SetPageSegMode(tesseract.PSM_AUTO_OSD)
 
-    # Your MySQL connection information goes here!
-    sql_conn = mdb.connect(user=MYSQL_USER,
-                           password=MYSQL_PASSWORD,
-                           host=MYSQL_HOST,
-                           database=MYSQL_DATABASE)
-    sql_cur = sql_conn.cursor()
+    if MYSQL_HOST and MYSQL_DATABASE and MYSQL_USER and MYSQL_PASSWORD:
+        sql_conn = mdb.connect(host=MYSQL_HOST,
+                               database=MYSQL_DATABASE,
+                               user=MYSQL_USER,
+                               password=MYSQL_PASSWORD)
+        sql_cur = sql_conn.cursor()
+
+    # [To-do] Load known/recognizable words from a dictionary
+    knownWords = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+    knownWords += [str(year) for year in range(1000, date.today().year)]
 
 ## Acquire image for processing.
 def acquireImage(imagePath):
@@ -301,6 +307,7 @@ def performOCR(image):
     :Return Type:
       string
     """
+    global api
     print "Performing OCR"
     height, width = image.shape
     channel1 = 1
@@ -324,26 +331,35 @@ def storeText(imageID, text, params):
     :Returns:
       None
     """
+    global sql_conn, sql_cur
     text = ''.join(
         c for c in unicodedata.normalize('NFKD', unicode(text, 'UTF-8'))
         if (c in string.ascii_letters) or (c in string.digits)
     ).upper()
     print "Storing text for image %s:\n%s" % (imageID, text)
-    sql_cur.execute((
-        "REPLACE INTO graves "
-        "(ref, text, threshold, rotate, blur) "
-        "VALUES (\"%s\", \"%s\", %d, %d, %d)") % (
-        imageID,
-        text,
-        params['threshold'],
-        params['rotate'],
-        params['blur'],
-    ))
-    sql_conn.commit()
+    if sql_cur and sql_conn:
+        sql_cur.execute((
+            "REPLACE INTO graves "
+            "(ref, text, threshold, rotate, blur) "
+            "VALUES (\"%s\", \"%s\", %d, %d, %d)") % (
+            imageID,
+            text,
+            params['threshold'],
+            params['rotate'],
+            params['blur'],
+        ))
+        sql_conn.commit()
+
+def getKnownWords(text):
+    global knownWords
+    return {"weight": 1.0, "words": [{"weight": 1.0, "word": w} for w in knownWords if w in string.upper(text)]}
 
 def shutdownTools():
-    sql_cur.close()
-    sql_conn.close()
+    global sql_conn, sql_cur
+    if sql_cur:
+        sql_cur.close()
+    if sql_conn:
+        sql_conn.close()
 
 
 # If run as a standalone script
