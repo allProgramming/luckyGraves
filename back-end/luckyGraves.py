@@ -235,7 +235,8 @@ def getVariations(image, cmdParams):
         for line in allLines:
             needsRotate += \
                 -1 if abs(line[0] - line[2]) > abs(line[1] - line[3]) else 1
-        combinations['rotate'] = [90, 270] if needsRotate > 0 else [0, 180]
+        # ~1% of images need counter-clockwise rotation (rarely any other rotation, so we ignore those options)
+        combinations['rotate'] = [270] if needsRotate > 0 else [0]
     else:
         combinations['rotate'] = [0]
 
