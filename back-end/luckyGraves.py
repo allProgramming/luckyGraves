@@ -44,7 +44,7 @@ def main(argv = []):
     for imagePath in cmdParams.input:
         imageID, rawImage = acquireImage(imagePath)
         cleanedImage = cv2.cvtColor(rawToCV2(cleanImage(rawImage)), cv2.COLOR_BGR2GRAY)
-        variations = getVariations(cleanedImage)
+        variations = getVariations(cleanedImage, cmdParams)
         for sampleParams in variations:
             sampledImage = sampleImage(cleanedImage, sampleParams)
             if cmdParams.show:
@@ -74,6 +74,11 @@ def parseArgs(argv):
         help="URL, local file path, or directory of image(s)",
         type=str,
         required=True
+    )
+    argParser.add_argument(
+        '-r', '--rotate',
+        help="sample rotations (rarely needed)",
+        action="store_true"
     )
     argParser.add_argument(
         '-s', '--show',
@@ -202,13 +207,14 @@ def rawToCV2(image):
 
 
 ## Determine variations for sampling.
-def getVariations(image):
+def getVariations(image, cmdParams):
     """ Determine variations for sampling.
 
     Generate a list of parameters to be applied during sampling.
 
     :Parameters:
       - `image` (cv2 image) - image to determine variations for
+      - `cmdParams` (dict) - parsed command-line arguments
 
     :Returns:
       Parameters to apply during sampling
@@ -219,16 +225,19 @@ def getVariations(image):
     combinations = {}
 
     # Determine if the image is horizontal or vertical
-    edges = cv2.Canny(image, 80, 120)
-    lines = cv2.HoughLinesP(edges, 1, math.pi / 2, 100, None, 800, 20)
-    needsRotate = 0
-    allLines = []
-    if not lines == None:
-        allLines = lines[0]
-    for line in allLines:
-        needsRotate += \
-            -1 if abs(line[0] - line[2]) > abs(line[1] - line[3]) else 1
-    combinations['rotate'] = [90, 270] if needsRotate > 0 else [0, 180]
+    if cmdParams.rotate:
+        edges = cv2.Canny(image, 80, 120)
+        lines = cv2.HoughLinesP(edges, 1, math.pi / 2, 100, None, 800, 20)
+        needsRotate = 0
+        allLines = []
+        if not lines == None:
+            allLines = lines[0]
+        for line in allLines:
+            needsRotate += \
+                -1 if abs(line[0] - line[2]) > abs(line[1] - line[3]) else 1
+        combinations['rotate'] = [90, 270] if needsRotate > 0 else [0, 180]
+    else:
+        combinations['rotate'] = [0]
 
     combinations['blur'] = [7]
 
