@@ -9,6 +9,7 @@ import math
 import ntpath
 import os
 import string
+import time
 import cv2
 import cv2.cv as cv
 import mysql.connector as mdb
@@ -45,13 +46,28 @@ def main(argv = []):
         imageID, rawImage = acquireImage(imagePath)
         cleanedImage = cv2.cvtColor(rawToCV2(cleanImage(rawImage)), cv2.COLOR_BGR2GRAY)
         variations = getVariations(cleanedImage, cmdParams)
+        samplingStartTime = time.time()
         for sampleParams in variations:
             sampledImage = sampleImage(cleanedImage, sampleParams)
-            if cmdParams.show:
-                showImage(sampledImage, "Sampled Image")
+            if cmdParams.display:
+                displayImage(sampledImage, "Sampled Image")
             text = performOCR(sampledImage)
             storeText(imageID, text, sampleParams)
+            if (time.time() - samplingStartTime) / 60.0 > cmdParams.time
+                break
     shutdownTools()
+
+def validatePositiveInt(value):
+    valid = false
+    try:
+        fVal = float(value)
+        iVal = int(value)
+        valid = (fVal == iVal and iVal > 0)
+    except:
+        pass
+    if not valid:
+        raise argparse.ArgumentTypeError("%s is not a positive, whole number" % value)
+    return int(value)
 
 ## Parse command-line arguments.
 def parseArgs(argv):
@@ -76,13 +92,23 @@ def parseArgs(argv):
         required=True
     )
     argParser.add_argument(
+        '-t', '--time',
+        help="time to spend sampling the input image (in minutes)",
+        type=validatePositiveInt,
+    )
+    argParser.add_argument(
+        '-s', '--samples',
+        help="number of samples to generate from the input image (limited by the \"time\" argument, if provided)",
+        type=validatePositiveInt,
+    )
+    argParser.add_argument(
         '-r', '--rotate',
         help="sample rotations (rarely needed)",
         action="store_true"
     )
     argParser.add_argument(
-        '-s', '--show',
-        help="show sampled image and wait for key press",
+        '-d', '--display',
+        help="display sampled image and wait for key press",
         action="store_true"
     )
     cmdParams = argParser.parse_args(argv[1:])
@@ -242,8 +268,7 @@ def getVariations(image, cmdParams):
 
     combinations['blur'] = [7]
 
-    threshold_step = 1
-    combinations['threshold'] = [x * threshold_step for x in range(0, 255 / threshold_step)]
+    combinations['threshold'] = [x * (255 / (cmdParams.samples - 1)) for x in range(0, cmdParams.samples - 1)]
 
     # Return all permutations of items in "combinations"
     return [
@@ -289,11 +314,11 @@ def sampleImage(image, params):
     return sampledImage
 
 ## Display an image to the user.
-def showImage(image, windowName):
+def displayImage(image, windowName):
     """ Display an image to the user.
 
     :Parameters:
-      - `image` (cv2 image) - image to be shown
+      - `image` (cv2 image) - image to be displayed
       - `windowName` (string) - title to be shown on the window
 
     :Returns:
