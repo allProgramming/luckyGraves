@@ -53,12 +53,23 @@ def main(argv = []):
                 displayImage(sampledImage, "Sampled Image")
             text = performOCR(sampledImage)
             storeText(imageID, text, sampleParams)
-            if (time.time() - samplingStartTime) / 60.0 > cmdParams.time
+            if cmdParams.time and (time.time() - samplingStartTime) / 60.0 > cmdParams.time:
                 break
     shutdownTools()
 
+def validatePositiveFloat(value):
+    valid = False
+    try:
+        fVal = float(value)
+        valid = (fVal > 0)
+    except:
+        pass
+    if not valid:
+        raise argparse.ArgumentTypeError("%s is not a positive number" % value)
+    return float(value)
+
 def validatePositiveInt(value):
-    valid = false
+    valid = False
     try:
         fVal = float(value)
         iVal = int(value)
@@ -94,12 +105,13 @@ def parseArgs(argv):
     argParser.add_argument(
         '-t', '--time',
         help="time to spend sampling the input image (in minutes)",
-        type=validatePositiveInt,
+        type=validatePositiveFloat,
     )
     argParser.add_argument(
         '-s', '--samples',
         help="number of samples to generate from the input image (limited by the \"time\" argument, if provided)",
         type=validatePositiveInt,
+        default=255,
     )
     argParser.add_argument(
         '-r', '--rotate',
@@ -268,7 +280,7 @@ def getVariations(image, cmdParams):
 
     combinations['blur'] = [7]
 
-    combinations['threshold'] = [x * (255 / (cmdParams.samples - 1)) for x in range(0, cmdParams.samples - 1)]
+    combinations['threshold'] = [x * (255 / (cmdParams.samples - 1)) for x in range(0, cmdParams.samples)]
 
     # Return all permutations of items in "combinations"
     return [
